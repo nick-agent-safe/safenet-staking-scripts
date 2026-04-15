@@ -3,11 +3,19 @@ import {
 	encodeAbiParameters,
 	encodeEventTopics,
 	type Hex,
+	keccak256,
 	parseAbiParameters,
+	toHex,
 	zeroAddress,
 	zeroHash,
 } from "viem";
-import { CONSENSUS_ABI, COORDINATOR_ABI, SANCTIONS_LIST_ABI, STAKING_ABI } from "../../src/abi.js";
+import {
+	CONSENSUS_ABI,
+	COORDINATOR_ABI,
+	DELEGATE_REGISTRY_ABI,
+	SANCTIONS_LIST_ABI,
+	STAKING_ABI,
+} from "../../src/abi.js";
 import { Safenet } from "../../src/safenet.js";
 import {
 	type BlockSpec,
@@ -43,6 +51,16 @@ export type StakingChainEvent =
 	| {
 			name: "SanctionedAddressesRemoved";
 			addresses: Address[];
+	  }
+	| {
+			name: "SetDelegate";
+			delegator: Address;
+			delegate: Address;
+	  }
+	| {
+			name: "ClearDelegate";
+			delegator: Address;
+			delegate: Address;
 	  };
 
 export type ConsensusChainEvent =
@@ -148,6 +166,22 @@ const encodeStakingEvent = (event: StakingChainEvent): LogSpec => {
 					eventName: event.name,
 				}) as Hex[],
 				data: encodeAbiParameters(parseAbiParameters("address[] addrs"), [event.addresses]),
+			};
+		}
+		case "SetDelegate":
+		case "ClearDelegate": {
+			return {
+				address: namedAddress("DelegateRegistry"),
+				topics: encodeEventTopics({
+					abi: DELEGATE_REGISTRY_ABI,
+					eventName: event.name,
+					args: {
+						delegator: event.delegator,
+						id: keccak256(toHex("Safenet Beta validator commission beneficiary")),
+						delegate: event.delegate,
+					},
+				}) as Hex[],
+				data: "0x",
 			};
 		}
 	}
@@ -311,6 +345,7 @@ export const createTestSafenet = (scenario: Scenario): Promise<Safenet> => {
 		stakingClient: createMockClient(stakingChain),
 		stakingBlockPageSize: 5n,
 		stakingAddress: namedAddress("Staking"),
+		delegateRegistryAddress: namedAddress("DelegateRegistry"),
 		sanctionsListAddress: namedAddress("SanctionsList"),
 		consensusClient: createMockClient(consensusChain),
 		consensusBlockPageSize: 5n,
