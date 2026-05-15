@@ -9,8 +9,8 @@ import { Safenet } from "../safenet.js";
 import { main, rewardsPeriod } from "../utils/args.js";
 import { formatPercent } from "../utils/format.js";
 import { readJsonFile, writeJsonFile } from "../utils/json.js";
+import { tableWriter } from "../utils/output.js";
 import { sortByAddress } from "../utils/sort.js";
-import { type Column, printRow, printTableHeader } from "../utils/table.js";
 
 main(
 	{
@@ -22,14 +22,17 @@ main(
 		const safenet = await Safenet.create(args);
 		const period = rewardsPeriod(args);
 
-		const columns: Column[] = [
-			{ header: "Validator".padEnd(42), width: 42 },
-			{ header: "Participation", width: 13 },
-		];
-		printTableHeader(columns);
+		const writer = tableWriter([
+			{ header: "Validator".padEnd(42), width: 42, format: (v: string) => v },
+			{
+				header: "Participation",
+				width: 13,
+				format: (rate: number) => formatPercent(rate).padStart(13),
+			},
+		]);
 		const { total, validators } = await safenet.participation(period);
 		for (const [validator, count] of Object.entries(validators)) {
-			printRow([validator, formatPercent(count / total).padStart(13)]);
+			writer.row([validator, count / total]);
 		}
 
 		if (args.record !== undefined) {

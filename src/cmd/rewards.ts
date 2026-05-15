@@ -9,7 +9,7 @@ import { Safenet } from "../safenet.js";
 import { main, rewardsPeriod, totalRewardsAmount } from "../utils/args.js";
 import { writeTransactionBundle } from "../utils/bundle.js";
 import { formatSafeToken } from "../utils/format.js";
-import { type Column, printRow, printSeparator, printTableHeader } from "../utils/table.js";
+import { tableWriter } from "../utils/output.js";
 
 main(
 	{
@@ -38,17 +38,16 @@ main(
 		const formatKyc = (amount: bigint): string =>
 			args.kycThreshold && amount >= args.kycThreshold ? " *" : "";
 
-		const columns: Column[] = [
-			{ header: "Recipient".padEnd(42), width: 42 },
-			{ header: "Payout".padEnd(29), width: 29 },
-			{ header: "KYC", width: 3 },
-		];
-		printTableHeader(columns);
+		const writer = tableWriter([
+			{ header: "Recipient".padEnd(42), width: 42, format: (v: string) => v },
+			{ header: "Payout".padEnd(29), width: 29, format: formatSafeToken },
+			{ header: "KYC", width: 3, format: (v: string) => v },
+		]);
 		for (const [recipient, amount] of Object.entries(payouts)) {
-			printRow([recipient, formatSafeToken(amount), formatKyc(amount)]);
+			writer.row([recipient, amount, formatKyc(amount)]);
 		}
-		printSeparator(columns);
-		printRow(["Unpaid".padEnd(42), formatSafeToken(unpaid), ""]);
+		writer.separator();
+		writer.row(["Unpaid".padEnd(42), unpaid, ""]);
 
 		if (args.record) {
 			const sanctions = await safenet.sanctionedAccounts(period);

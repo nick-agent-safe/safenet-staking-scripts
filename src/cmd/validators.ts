@@ -6,7 +6,7 @@ import { z } from "zod";
 import { Safenet } from "../safenet.js";
 import { main, rewardsPeriod } from "../utils/args.js";
 import { formatSafeToken } from "../utils/format.js";
-import { type Column, printRow, printTableHeader } from "../utils/table.js";
+import { tableWriter } from "../utils/output.js";
 
 main(
 	{
@@ -17,15 +17,14 @@ main(
 		const safenet = await Safenet.create(args);
 		const period = rewardsPeriod(args);
 
-		const columns: Column[] = [
-			{ header: "Validator".padEnd(42), width: 42 },
-			{ header: "Self Stake".padEnd(29), width: 29 },
-			{ header: "Total Stake".padEnd(29), width: 29 },
-		];
-		printTableHeader(columns);
+		const writer = tableWriter([
+			{ header: "Validator".padEnd(42), width: 42, format: (v: string) => v },
+			{ header: "Self Stake".padEnd(29), width: 29, format: formatSafeToken },
+			{ header: "Total Stake".padEnd(29), width: 29, format: formatSafeToken },
+		]);
 		const validators = await safenet.validatorStats(period);
 		for (const [validator, { stake }] of Object.entries(validators)) {
-			printRow([validator, formatSafeToken(stake.self.amount), formatSafeToken(stake.total)]);
+			writer.row([validator, stake.self.amount, stake.total]);
 		}
 	},
 );
