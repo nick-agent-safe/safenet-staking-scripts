@@ -10,6 +10,7 @@ import { main, rewardsPeriod } from "../utils/args.js";
 import { formatPercent } from "../utils/format.js";
 import { readJsonFile, writeJsonFile } from "../utils/json.js";
 import { sortByAddress } from "../utils/sort.js";
+import { type Column, printRow, printTableHeader } from "../utils/table.js";
 
 main(
 	{
@@ -21,11 +22,14 @@ main(
 		const safenet = await Safenet.create(args);
 		const period = rewardsPeriod(args);
 
-		console.log(` Validator                                  | Participation`);
-		console.log(`--------------------------------------------+---------------`);
+		const columns: Column[] = [
+			{ header: "Validator".padEnd(42), width: 42 },
+			{ header: "Participation", width: 13 },
+		];
+		printTableHeader(columns);
 		const { total, validators } = await safenet.participation(period);
 		for (const [validator, count] of Object.entries(validators)) {
-			console.log(` ${validator} | ${formatPercent(count / total).padStart(13)}`);
+			printRow([validator, formatPercent(count / total).padStart(13)]);
 		}
 
 		if (args.record !== undefined) {

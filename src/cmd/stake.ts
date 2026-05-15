@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Safenet } from "../safenet.js";
 import { main, rewardsPeriod } from "../utils/args.js";
 import { formatSafeToken } from "../utils/format.js";
+import { type Column, printRow, printTableHeader } from "../utils/table.js";
 
 main(
 	{
@@ -16,15 +17,15 @@ main(
 		const safenet = await Safenet.create(args);
 		const period = rewardsPeriod(args);
 
-		console.log(
-			` Staker                                     | Validator                                  | Average Stake`,
-		);
-		console.log(
-			`--------------------------------------------+--------------------------------------------+-------------------------------`,
-		);
+		const columns: Column[] = [
+			{ header: "Staker".padEnd(42), width: 42 },
+			{ header: "Validator".padEnd(42), width: 42 },
+			{ header: "Average Stake", width: 29 },
+		];
+		printTableHeader(columns);
 		for await (const { staker, amounts } of safenet.staked(period)) {
 			for (const { validator, amount } of amounts) {
-				console.log(` ${staker} | ${validator} | ${formatSafeToken(amount)}`);
+				printRow([staker, validator, formatSafeToken(amount)]);
 			}
 		}
 	},
