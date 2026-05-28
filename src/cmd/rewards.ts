@@ -9,7 +9,12 @@ import { Safenet } from "../safenet.js";
 import { main, rewardsPeriod, totalRewardsAmount } from "../utils/args.js";
 import { writeTransactionBundle } from "../utils/bundle.js";
 import { formatSafeToken } from "../utils/format.js";
-import { buildRewardsPresentation, presentTable, presentTsv } from "../utils/presentation.js";
+import {
+	buildRewardsPresentation,
+	buildSplitRewardsPresentation,
+	presentTable,
+	presentTsv,
+} from "../utils/presentation.js";
 
 main(
 	{
@@ -29,6 +34,7 @@ main(
 			.string()
 			.transform((v) => getAddress(v))
 			.optional(),
+		split: z.boolean().optional(),
 	},
 	async (args) => {
 		const safenet = await Safenet.create(args);
@@ -36,14 +42,32 @@ main(
 		const totalAmount = await totalRewardsAmount(args);
 
 		const { payouts, unpaid } = await safenet.rewards(period, totalAmount);
-		const presentation = buildRewardsPresentation(payouts, unpaid, args.kycThreshold);
+
+		const presentation = args.split
+			? buildSplitRewardsPresentation(payouts, unpaid, args.kycThreshold)
+			: buildRewardsPresentation(
+					Object.fromEntries(
+						Object.entries(payouts).map(([addr, { stakeRewards, commission }]) => [
+							addr,
+							stakeRewards + commission,
+						]),
+					),
+					unpaid,
+					args.kycThreshold,
+				);
 		console.log(args.tsv ? presentTsv(presentation) : presentTable(presentation));
 
 		if (args.record) {
 			const sanctions = await safenet.sanctionedAccounts(period);
 			const db = new MerkleDb({ record: args.record });
 			const filters = { sanctions, ...args };
-			const update = await db.distribute(period, payouts, unpaid, filters);
+			const flatPayouts = Object.fromEntries(
+				Object.entries(payouts).map(([addr, { stakeRewards, commission }]) => [
+					addr,
+					stakeRewards + commission,
+				]),
+			);
+			const update = await db.distribute(period, flatPayouts, unpaid, filters);
 
 			console.log();
 			if (update === null) {
