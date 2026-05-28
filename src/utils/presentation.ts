@@ -1,34 +1,48 @@
-import { formatUnits } from "viem";
+type FormatFn<T> = (item: T) => string;
 
-export type Presentation = {
-	headers: string[];
-	rows: string[][];
-	footer: string[];
+export type ColumnDef<T> = {
+	header: string;
+	width: number;
+	align?: "left" | "right";
+	format: FormatFn<T> | { table: FormatFn<T>; tsv: FormatFn<T> };
 };
 
-export const buildRewardsPresentation = (
-	payouts: Record<string, bigint>,
-	unpaid: bigint,
-	kycThreshold?: bigint,
-): Presentation => {
-	const meetsKyc = (amount: bigint): boolean => !!kycThreshold && amount >= kycThreshold;
-	return {
-		headers: ["Recipient", "Payout", "KYC"],
-		rows: Object.entries(payouts).map(([recipient, amount]) => [
-			recipient,
-			formatUnits(amount, 18),
-			meetsKyc(amount) ? "TRUE" : "FALSE",
-		]),
-		footer: ["Unpaid", formatUnits(unpaid, 18), ""],
+export type Presenter<T> = {
+	writeRow: (item: T) => void;
+	finish: (footer?: string[]) => void;
+};
+
+const resolveFormat = <T>(col: ColumnDef<T>, mode: "table" | "tsv"): FormatFn<T> =>
+	typeof col.format === "function" ? col.format : col.format[mode];
+
+export const createPresenter = <T>(
+	columns: ColumnDef<T>[],
+	{ tsv = false, writer = console.log }: { tsv?: boolean; writer?: (line: string) => void } = {},
+): Presenter<T> => {
+	const mode = tsv ? "tsv" : "table";
+	let finished = false;
+
+	const sep = columns.map((col) => "-".repeat(col.width + 2)).join("+");
+	const fmtCell = (col: ColumnDef<T>, value: string) =>
+		col.align === "right" ? ` ${value.padStart(col.width)} ` : ` ${value.padEnd(col.width)} `;
+	const fmtRow = (values: string[]) =>
+		columns.map((col, i) => fmtCell(col, values[i] ?? "")).join("|");
+	const fmtLine = tsv ? (values: string[]) => values.join("\t") : fmtRow;
+
+	writer(fmtLine(columns.map((col) => col.header)));
+	if (!tsv) writer(sep);
+
+	const writeRow = (item: T): void => {
+		writer(fmtLine(columns.map((col) => resolveFormat(col, mode)(item))));
 	};
-};
 
-export const presentTsv = ({ headers, rows, footer }: Presentation): string =>
-	[headers, ...rows, footer].map((row) => row.join("\t")).join("\n");
+	const finish = (footer?: string[]): void => {
+		if (finished) throw new Error("Presenter already finished");
+		finished = true;
 
-export const presentTable = ({ headers, rows, footer }: Presentation): string => {
-	const sep = `--------------------------------------------+-------------------------------+-----`;
-	const fmtRow = ([col0, col1, col2]: string[]) =>
-		` ${col0.padEnd(42)} | ${col1.padStart(29)} | ${col2 === "TRUE" ? "*" : col2}`;
-	return [fmtRow(headers), sep, ...rows.map(fmtRow), sep, fmtRow(footer)].join("\n");
+		if (!tsv) writer(sep);
+		if (footer) writer(fmtLine(footer));
+	};
+
+	return { writeRow, finish };
 };

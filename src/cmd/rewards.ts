@@ -2,14 +2,16 @@
  * Command to print reward payouts for a given payout period.
  */
 
-import { getAddress, parseUnits } from "viem";
+import { formatUnits, getAddress, parseUnits } from "viem";
 import { z } from "zod";
 import { MerkleDb } from "../merkledb/index.js";
 import { Safenet } from "../safenet.js";
 import { main, rewardsPeriod, totalRewardsAmount } from "../utils/args.js";
 import { writeTransactionBundle } from "../utils/bundle.js";
 import { formatSafeToken } from "../utils/format.js";
-import { buildRewardsPresentation, presentTable, presentTsv } from "../utils/presentation.js";
+import { createPresenter } from "../utils/presentation.js";
+
+type PayoutItem = { recipient: string; amount: bigint };
 
 main(
 	{
@@ -36,8 +38,37 @@ main(
 		const totalAmount = await totalRewardsAmount(args);
 
 		const { payouts, unpaid } = await safenet.rewards(period, totalAmount);
-		const presentation = buildRewardsPresentation(payouts, unpaid, args.kycThreshold);
-		console.log(args.tsv ? presentTsv(presentation) : presentTable(presentation));
+		const meetsKyc = (amount: bigint) => !!args.kycThreshold && amount >= args.kycThreshold;
+		const presenter = createPresenter<PayoutItem>(
+			[
+				{
+					header: "Recipient",
+					width: 42,
+					format: ({ recipient }) => recipient,
+				},
+				{
+					header: "Payout",
+					width: 29,
+					align: "right",
+					format: ({ amount }) => formatUnits(amount, 18),
+				},
+				{
+					header: "KYC",
+					width: 3,
+					format: {
+						table: ({ amount }) => (meetsKyc(amount) ? "*" : ""),
+						tsv: ({ amount }) => (meetsKyc(amount) ? "TRUE" : "FALSE"),
+					},
+				},
+			],
+			args,
+		);
+
+		for (const [recipient, amount] of Object.entries(payouts)) {
+			presenter.writeRow({ recipient, amount });
+		}
+
+		presenter.finish(["Unpaid", formatUnits(unpaid, 18), ""]);
 
 		if (args.record) {
 			const sanctions = await safenet.sanctionedAccounts(period);
