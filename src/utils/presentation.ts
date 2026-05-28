@@ -27,7 +27,9 @@ export const createPresenter = <T>(
 		col.align === "right" ? ` ${value.padStart(col.width)} ` : ` ${value.padEnd(col.width)} `;
 	const fmtRow = (values: string[]) =>
 		columns.map((col, i) => fmtCell(col, values[i] ?? "")).join("|");
-	const fmtLine = tsv ? (values: string[]) => values.join("\t") : fmtRow;
+	const fmtLine = tsv
+		? (values: string[]) => columns.map((_, i) => values[i] ?? "").join("\t")
+		: fmtRow;
 
 	writer(fmtLine(columns.map((col) => col.header)));
 	if (!tsv) writer(sep);

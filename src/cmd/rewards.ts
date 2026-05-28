@@ -40,80 +40,71 @@ main(
 
 		const { payouts, unpaid } = await safenet.rewards(period, totalAmount);
 		const meetsKyc = (amount: bigint) => !!args.kycThreshold && amount >= args.kycThreshold;
-
-		if (args.split) {
-			const presenter = createPresenter<PayoutItem>(
-				[
-					{
-						header: "Recipient",
-						width: 42,
-						format: ({ recipient }) => recipient,
-					},
-					{
-						header: "Stake Rewards",
-						width: 29,
-						align: "right",
-						format: ({ stakeRewards }) => formatUnits(stakeRewards, 18),
-					},
-					{
-						header: "Commission",
-						width: 29,
-						align: "right",
-						format: ({ commission }) => formatUnits(commission, 18),
-					},
-					{
-						header: "KYC",
-						width: 3,
-						format: {
-							table: ({ stakeRewards, commission }) =>
-								meetsKyc(stakeRewards + commission) ? "*" : "",
-							tsv: ({ stakeRewards, commission }) =>
-								meetsKyc(stakeRewards + commission) ? "TRUE" : "FALSE",
+		const presenter = args.split
+			? createPresenter<PayoutItem>(
+					[
+						{
+							header: "Recipient",
+							width: 42,
+							format: ({ recipient }) => recipient,
 						},
-					},
-				],
-				args,
-			);
-
-			for (const [recipient, { stakeRewards, commission }] of Object.entries(payouts)) {
-				presenter.writeRow({ recipient, stakeRewards, commission });
-			}
-
-			presenter.finish(["Unpaid", formatUnits(unpaid, 18), "", ""]);
-		} else {
-			const presenter = createPresenter<PayoutItem>(
-				[
-					{
-						header: "Recipient",
-						width: 42,
-						format: ({ recipient }) => recipient,
-					},
-					{
-						header: "Payout",
-						width: 29,
-						align: "right",
-						format: ({ stakeRewards, commission }) => formatUnits(stakeRewards + commission, 18),
-					},
-					{
-						header: "KYC",
-						width: 3,
-						format: {
-							table: ({ stakeRewards, commission }) =>
-								meetsKyc(stakeRewards + commission) ? "*" : "",
-							tsv: ({ stakeRewards, commission }) =>
-								meetsKyc(stakeRewards + commission) ? "TRUE" : "FALSE",
+						{
+							header: "Stake Rewards",
+							width: 29,
+							align: "right",
+							format: ({ stakeRewards }) => formatUnits(stakeRewards, 18),
 						},
-					},
-				],
-				args,
-			);
+						{
+							header: "Commission",
+							width: 29,
+							align: "right",
+							format: ({ commission }) => formatUnits(commission, 18),
+						},
+						{
+							header: "KYC",
+							width: 3,
+							format: {
+								table: ({ stakeRewards, commission }) =>
+									meetsKyc(stakeRewards + commission) ? "*" : "",
+								tsv: ({ stakeRewards, commission }) =>
+									meetsKyc(stakeRewards + commission) ? "TRUE" : "FALSE",
+							},
+						},
+					],
+					args,
+				)
+			: createPresenter<PayoutItem>(
+					[
+						{
+							header: "Recipient",
+							width: 42,
+							format: ({ recipient }) => recipient,
+						},
+						{
+							header: "Payout",
+							width: 29,
+							align: "right",
+							format: ({ stakeRewards, commission }) => formatUnits(stakeRewards + commission, 18),
+						},
+						{
+							header: "KYC",
+							width: 3,
+							format: {
+								table: ({ stakeRewards, commission }) =>
+									meetsKyc(stakeRewards + commission) ? "*" : "",
+								tsv: ({ stakeRewards, commission }) =>
+									meetsKyc(stakeRewards + commission) ? "TRUE" : "FALSE",
+							},
+						},
+					],
+					args,
+				);
 
-			for (const [recipient, { stakeRewards, commission }] of Object.entries(payouts)) {
-				presenter.writeRow({ recipient, stakeRewards, commission });
-			}
-
-			presenter.finish(["Unpaid", formatUnits(unpaid, 18), ""]);
+		for (const [recipient, { stakeRewards, commission }] of Object.entries(payouts)) {
+			presenter.writeRow({ recipient, stakeRewards, commission });
 		}
+
+		presenter.finish(["Unpaid", formatUnits(unpaid, 18)]);
 
 		if (args.record) {
 			const sanctions = await safenet.sanctionedAccounts(period);
