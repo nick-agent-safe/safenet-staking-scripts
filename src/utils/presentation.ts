@@ -23,18 +23,20 @@ export const createPresenter = <T>(
 	let finished = false;
 
 	const sep = columns.map((col) => "-".repeat(col.width + 2)).join("+");
-	const fmtCell = (col: ColumnDef<T>, value: string) =>
+	const padCell = (col: ColumnDef<T>, value: string) =>
 		col.align === "right" ? ` ${value.padStart(col.width)} ` : ` ${value.padEnd(col.width)} `;
-	const fmtRow = (values: string[]) =>
-		columns.map((col, i) => fmtCell(col, values[i] ?? "")).join("|");
-	const fmtLine = tsv
-		? (values: string[]) => columns.map((_, i) => values[i] ?? "").join("\t")
-		: fmtRow;
+	const tableLine = (values: string[]) =>
+		columns.map((col, i) => padCell(col, values[i] ?? "")).join("|");
+	const fmtLine =
+		mode === "tsv"
+			? (values: string[]) => columns.map((_, i) => values[i] ?? "").join("\t")
+			: tableLine;
 
 	writer(fmtLine(columns.map((col) => col.header)));
-	if (!tsv) writer(sep);
+	if (mode === "table") writer(sep);
 
 	const writeRow = (item: T): void => {
+		if (finished) throw new Error("Presenter already finished");
 		writer(fmtLine(columns.map((col) => resolveFormat(col, mode)(item))));
 	};
 
@@ -42,7 +44,7 @@ export const createPresenter = <T>(
 		if (finished) throw new Error("Presenter already finished");
 		finished = true;
 
-		if (!tsv) writer(sep);
+		if (mode === "table") writer(sep);
 		if (footer) writer(fmtLine(footer));
 	};
 

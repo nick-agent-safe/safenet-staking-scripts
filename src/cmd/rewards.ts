@@ -9,7 +9,7 @@ import { Safenet } from "../safenet.js";
 import { main, rewardsPeriod, totalRewardsAmount } from "../utils/args.js";
 import { writeTransactionBundle } from "../utils/bundle.js";
 import { formatSafeToken } from "../utils/format.js";
-import { createPresenter } from "../utils/presentation.js";
+import { type ColumnDef, createPresenter } from "../utils/presentation.js";
 
 type PayoutItem = { recipient: string; stakeRewards: bigint; commission: bigint };
 
@@ -40,65 +40,52 @@ main(
 
 		const { payouts, unpaid } = await safenet.rewards(period, totalAmount);
 		const meetsKyc = (amount: bigint) => !!args.kycThreshold && amount >= args.kycThreshold;
-		const presenter = args.split
-			? createPresenter<PayoutItem>(
-					[
-						{
-							header: "Recipient",
-							width: 42,
-							format: ({ recipient }) => recipient,
-						},
-						{
-							header: "Stake Rewards",
-							width: 29,
-							align: "right",
-							format: ({ stakeRewards }) => formatUnits(stakeRewards, 18),
-						},
-						{
-							header: "Commission",
-							width: 29,
-							align: "right",
-							format: ({ commission }) => formatUnits(commission, 18),
-						},
-						{
-							header: "KYC",
-							width: 3,
-							format: {
-								table: ({ stakeRewards, commission }) =>
-									meetsKyc(stakeRewards + commission) ? "*" : "",
-								tsv: ({ stakeRewards, commission }) =>
-									meetsKyc(stakeRewards + commission) ? "TRUE" : "FALSE",
-							},
-						},
-					],
-					args,
-				)
-			: createPresenter<PayoutItem>(
-					[
-						{
-							header: "Recipient",
-							width: 42,
-							format: ({ recipient }) => recipient,
-						},
-						{
-							header: "Payout",
-							width: 29,
-							align: "right",
-							format: ({ stakeRewards, commission }) => formatUnits(stakeRewards + commission, 18),
-						},
-						{
-							header: "KYC",
-							width: 3,
-							format: {
-								table: ({ stakeRewards, commission }) =>
-									meetsKyc(stakeRewards + commission) ? "*" : "",
-								tsv: ({ stakeRewards, commission }) =>
-									meetsKyc(stakeRewards + commission) ? "TRUE" : "FALSE",
-							},
-						},
-					],
-					args,
-				);
+
+		const amountCols: ColumnDef<PayoutItem>[] = args.split
+			? [
+					{
+						header: "Stake Rewards",
+						width: 29,
+						align: "right",
+						format: ({ stakeRewards }) => formatUnits(stakeRewards, 18),
+					},
+					{
+						header: "Commission",
+						width: 29,
+						align: "right",
+						format: ({ commission }) => formatUnits(commission, 18),
+					},
+				]
+			: [
+					{
+						header: "Payout",
+						width: 29,
+						align: "right",
+						format: ({ stakeRewards, commission }) => formatUnits(stakeRewards + commission, 18),
+					},
+				];
+
+		const presenter = createPresenter<PayoutItem>(
+			[
+				{
+					header: "Recipient",
+					width: 42,
+					format: ({ recipient }) => recipient,
+				},
+				...amountCols,
+				{
+					header: "KYC",
+					width: 3,
+					format: {
+						table: ({ stakeRewards, commission }) =>
+							meetsKyc(stakeRewards + commission) ? "*" : "",
+						tsv: ({ stakeRewards, commission }) =>
+							meetsKyc(stakeRewards + commission) ? "TRUE" : "FALSE",
+					},
+				},
+			],
+			args,
+		);
 
 		for (const [recipient, { stakeRewards, commission }] of Object.entries(payouts)) {
 			presenter.writeRow({ recipient, stakeRewards, commission });

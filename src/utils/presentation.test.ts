@@ -81,6 +81,12 @@ describe("presentTable", () => {
 		p.finish();
 		expect(() => p.finish()).toThrow();
 	});
+
+	it("throws on writeRow after finish", () => {
+		const p = createPresenter<Row>(columns, { writer: () => {} });
+		p.finish();
+		expect(() => p.writeRow({ label: addr1, value: ONE_SAFE })).toThrow();
+	});
 });
 
 describe("presentTsv", () => {
